@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="freecrm" default="build" basedir=".">
+	<property file="build.properties" />
+	<property file="build.release" />
+	<property name="source.dir" value="${basedir}/lib/My" />
+    <property name="test.dir" value="${basedir}/tests" />
+	<property name="build.dir" value="${basedir}/build" />
+	<property name="scripts.dir" value="${basedir}/scripts" />
+	<property name="release.dir" value="${build.dir}/release" />
+	
+	<buildnumber file="${release.dir}/${release.name}.buildnumber"/>
+	
+	<property name="release.file" value="${release.dir}/${release.name}-${release.number}.${build.number}.1.zip" />
+	
+	<target name="build" depends="clean,release" />
+	
+	<target name="build-nightly" depends="clean,checkout,phpcs,phpmd,pdepend,phpunit,release" />
+	
+	<!-- publikacja paczki -->
+	<target name="publish" depends="release">
+	    <ftp 
+	    	server="${publish.ftp.server}"
+	    	userid="${publish.ftp.user}"
+	    	remotedir="${publish.ftp.dir}"
+	    	password="${publish.ftp.password}">
+	    	<fileset dir="${release.file}"/>
+	    </ftp>
+	</target>
+	
+
+	<target name="version">
+		<exec executable="php" dir="${scripts.dir}" output="${source.dir}/Version.php">
+			   <arg line="publish.php
+			   	 --name ${project.name}
+			   	 --class-name My_Version
+			     --release ${release.number}
+			     --commit ${build.number}"/>
+		</exec>
+	</target>
+
+    <target name="checkout">
+        <exec executable="svn" dir="${basedir}" failonerror="true">
+            <arg line="update" />
+        </exec>
+    </target>
+	
+	<target name="release" depends="phpunit,version">
+	  <zip destfile="${release.file}"
+	       basedir="${source.dir}"
+	  />	
+	</target>
+
+	<target name="clean">
+		<delete dir="${build.dir}/logs" />
+		<delete dir="${build.dir}/api" />
+		<delete dir="${build.dir}/coverage" />
+		<delete dir="${build.dir}/pdepend" />
+		
+		<mkdir dir="${build.dir}/logs"/>
+		<mkdir dir="${build.dir}/api"/>
+		<mkdir dir="${build.dir}/coverage"/>
+		<mkdir dir="${build.dir}/pdepend"/>
+		<mkdir dir="${build.dir}/release"/>
+	</target>
+	
+    <target name="phpcs">
+        <exec executable="phpcs" dir="${source.dir}">
+            <arg line="
+                       --report-file=${build.dir}/logs/checkstyle.xml
+                       --report=checkstyle 
+                       --standard=Zend
+                       ${source.dir}"/>
+        </exec>
+    </target>
+    
+    
+    <target name="pdepend">
+        <exec executable="pdepend" dir="${source.dir}">
+            <arg line="--summary-xml=${build.dir}/pdepend/pdepend.xml
+                --jdepend-xml=${build.dir}/pdepend/jdepend.xml
+                --jdepend-chart=${build.dir}/pdepend/jdepend.svg
+                --overview-pyramid=${build.dir}/pdepend/pyramid.svg
+                --coderank-mode=property,inheritance,method
+                --coverage-report=${build.dir}/pdepend/phpunit.coverage.xml
+                ${source.dir}" />
+        </exec>
+    </target>    
+    	
+
+	<target name="phpunit">
+		<exec executable="phpunit" dir="${test.dir}" failonerror="on">
+			<arg line="
+			      --bootstrap ${test.dir}/bootstrap.php
+				  --log-junit ${build.dir}/logs/phpunit.xml
+				  --configuration ${test.dir}/config.xml  
+                  --coverage-clover ${build.dir}/logs/phpunit.coverage.xml 
+                  --coverage-html ${build.dir}/coverage
+                  --testdox-html ${build.dir}/logs/tesdox.html
+                  ${test.dir}" />
+		</exec>
+	</target>
+
+    <target name="phpmd">
+        <exec executable="phpmd" dir="${source.dir}">
+            <arg line="${source.dir} xml codesize,design,naming,unusedcode 
+                --reportfile ${build.dir}/logs/pmd.xml" />
+        </exec>
+    </target>	
+    
+    <target name="phpdoc">
+        <exec executable="phpdoc" dir="${source.dir}">
+            <arg line="--customtags type 
+                       -ue on 
+                       --target ${build.dir}/api 
+                       --templatebase J:\workspace\phpUnderControl\data\phpdoc 
+                       --output HTML:Phpuc:phpuc
+                       --quiet on 
+                       --directory ${source.dir}" 
+                       />
+        </exec>
+    </target>    
+	
+	
+</project>
